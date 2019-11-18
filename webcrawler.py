@@ -104,29 +104,30 @@ def main():
 		print("Error %d received after login" % code)
 		sys.exit()
 	
+	print("the first url is " + str(url))
 	visited.add(url)
 
 	# Start the web crawler
 	# Parse the input for urls - add them to the queue
 	get_urls(http_response)
 	while len(queue) > 0 and len(flags) < 5:
-		#print("queue length: %d\nFlag length: %d" % (len(queue), len(flags)))
+		print("queue length: %d\nFlag length: %d" % (len(queue), len(flags)))
 		curr = queue.pop(0) # get first url in queue
 		#print(curr)
 
 		# request url and get http response
 		request = 'GET %s HTTP/1.1\r\nHost: net2.cs.vt.edu\r\nCookie: csrftoken=%s;sessionid=%s\r\n\r\n' % (curr, token, session)
-		print(request)
+		#print(request)
 		check_conn(http_response) # always check connectioni before sending a request
 		s.send(request.encode())
 		response = s.recv(4096)  
 		http_response = str(response)
-		print(http_response)
+		#print(http_response)
 		code = get_code(http_response)
 		#print(code)
 
 		while code != 200 and code != 403 and code != 404:
-			print(code)
+			#print(code)
 			if code != 500:
 				i = http_response.find('net2.cs.vt.edu')
 
@@ -137,24 +138,44 @@ def main():
 					break
 
 				url = http_response[i+14:].split('\r')[0]
+				visited.add(url)
+				#print(url)
+				request = 'GET %s HTTP/1.1\r\nHost: net2.cs.vt.edu\r\nCookie: csrftoken=%s;sessionid=%s\r\n\r\n' % (url, token, session)
+				
+				#print(request)
+				check_conn(http_response) 
+				s.send(request.encode())
+
+				response = s.recv(4096)  
+				http_response = str(response)
+				#print(http_response)
+				code = get_code(http_response)
+			# when the 500 code is received
 			else:
-				url = curr	
-				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-				s.connect((host, port))
+				t = 0
+				while(code == 500):
+					url = curr	
+					s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+					try:
+						s.connect((host, port)) 
+					except socket.gaierror:
+						print('Error connecting to address given for server.')
 
-			visited.add(url)
-			#print(url)
-			request = 'GET %s HTTP/1.1\r\nHost: net2.cs.vt.edu\r\nCookie: csrftoken=%s;sessionid=%s\r\n\r\n' % (url, token, session)
-			
-			print(request)
-			check_conn(http_response) 
-			s.send(request.encode())
+					visited.add(url)
+					#print(url)
+					request = 'GET %s HTTP/1.1\r\nHost: net2.cs.vt.edu\r\nCookie: csrftoken=%s;sessionid=%s\r\n\r\n' % (url, token, session)
+					
+					#print(request)
+					check_conn(http_response) 
+					s.send(request.encode())
 
-			response = s.recv(4096)  
-			http_response = str(response)
-			print(http_response)
-			code = get_code(http_response)
-			#print(code)
+					response = s.recv(4096)  
+					http_response = str(response)
+					#print(http_response)
+					code = get_code(http_response)
+					if t > 0:
+						print('this is my life ' + str(code))
+					t += 1
 
 		if code == 403 or code == 404: # abandon the url
 			visited.add(curr)
@@ -216,6 +237,7 @@ def find_flags(response):
 	pattern = r'<h2 class=\'secret_flag\' style="color:red">FLAG: [A-Za-z0-9]*'
 	flag = re.search(pattern, response)
 	if flag is not None:
+		print('flag')
 		flags.append(flag.group()[48:])
 
 # Call main
